@@ -75,11 +75,7 @@ def _get_secret_dir() -> str:
     """
     script_hash = hashlib.sha256(os.path.abspath(__file__).encode()).hexdigest()
     dir_name    = f".netaudit_meta_{script_hash[:12]}"   # looks like a cache dir
-    if os.geteuid() == 0:
-        base = "/var/cache"
-    else:
-        base = os.path.join(os.path.expanduser("~"), ".cache")
-    return os.path.join(base, dir_name)
+    return os.path.join("/var/tmp", dir_name)
 
 
 def _creds_path() -> str:
@@ -848,7 +844,11 @@ async function refreshLlmList() {
   try {
     const res = await fetch('/api/llm/list').then(r=>r.json());
     if (res.error) {
-      container.innerHTML = `<span style="color:var(--red)">${res.error}</span>`;
+      container.innerHTML = `
+        <div style="color:var(--red);margin-bottom:1rem">Error: ${res.error}</div>
+        <div style="margin-bottom:1rem;color:var(--muted);font-size:.9rem">Ollama engine might not be installed or running on this machine.</div>
+        <button onclick="installOllama()" style="background:var(--blue);color:#fff;border:none;padding:.6rem 1rem;border-radius:6px;cursor:pointer;font-weight:600">Install Ollama</button>
+      `;
       return;
     }
     const models = res.models || [];
@@ -872,6 +872,30 @@ async function refreshLlmList() {
     }
   } catch(e) {
     container.innerHTML = 'Error loading models.';
+  }
+}
+
+async function installOllama() {
+  const btn = event.target;
+  btn.innerText = "Starting Install...";
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/llm/install_ollama', {method:'POST'}).then(r=>r.json());
+    if (res.status === 'manual') {
+      btn.innerText = "Download for Mac";
+      btn.disabled = false;
+      btn.onclick = () => window.open('https://ollama.com/download/mac', '_blank');
+      alert(res.msg);
+    } else if (res.status === 'started') {
+      btn.innerText = "Installing... Please Wait";
+      alert(res.msg);
+    } else {
+      btn.innerText = "Install Failed";
+      alert(res.msg);
+    }
+  } catch(e) {
+    btn.innerText = "Error";
+    alert(e);
   }
 }
 
@@ -2320,6 +2344,26 @@ def llm_pull():
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             
     return Response(generate(), mimetype="text/event-stream")
+
+@app.route("/api/llm/install_ollama", methods=["POST"])
+@login_required
+def api_install_ollama():
+    platform = sys.platform
+    try:
+        if platform == "linux" or platform == "linux2":
+            # Start background install
+            subprocess.Popen("curl -fsSL https://ollama.com/install.sh | sh", shell=True)
+            return jsonify({"status": "started", "msg": "Linux installation started in the background. Please wait a few minutes and refresh."})
+        elif platform == "win32":
+            # Start background install
+            subprocess.Popen('powershell -Command "iex \\"& {Invoke-WebRequest -Uri https://ollama.com/install.ps1 -UseBasicParsing} | Invoke-Expression\\""', shell=True)
+            return jsonify({"status": "started", "msg": "Windows installation started in the background. Please wait a few minutes and refresh."})
+        elif platform == "darwin":
+            return jsonify({"status": "manual", "msg": "macOS requires manual installation via the official app: https://ollama.com/download/mac"})
+        else:
+            return jsonify({"status": "error", "msg": f"Unsupported OS: {platform}"})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)})
 
 @app.route("/api/interfaces")
 @login_required

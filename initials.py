@@ -175,11 +175,7 @@ def _get_secret_dir():
     app_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "app.py"))
     script_hash = hashlib.sha256(app_path.encode()).hexdigest()
     dir_name = f".netaudit_meta_{script_hash[:12]}"
-    if os.geteuid() == 0:
-        base = "/var/cache"
-    else:
-        base = os.path.join(os.path.expanduser("~"), ".cache")
-    return os.path.join(base, dir_name)
+    return os.path.join("/var/tmp", dir_name)
 
 def generate_product_key():
     chars = string.ascii_uppercase + string.digits

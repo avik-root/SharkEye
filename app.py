@@ -119,7 +119,21 @@ def init_credentials():
         pass
 
     creds_file = _creds_path()
+    needs_init = False
+    
     if not os.path.exists(creds_file):
+        needs_init = True
+    else:
+        # Check if the store has the old 'sharkEYE' format and update it
+        try:
+            with open(creds_file, "r") as fh:
+                store = json.load(fh)
+            if "sharkeye" not in store:
+                needs_init = True
+        except Exception:
+            needs_init = True
+
+    if needs_init:
         # Hash the default password (handle both string and bytes requirements for bcrypt)
         try:
             pw_hash = _bcrypt.hashpw(b"mintfire", _bcrypt.gensalt(12))

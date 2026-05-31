@@ -2524,4 +2524,4 @@ if __name__ == "__main__":
     log("Dashboard : http://0.0.0.0:5000 — login required", "ok")
     print("\033[96m" + "=" * 55 + "\033[0m\n")
 
-    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

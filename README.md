@@ -177,16 +177,16 @@ pip install flask bcrypt ollama
 
 ### 3. First-Time Setup (Important)
 
-Before starting the server, run the `initials.py` setup script to perform system checks and generate your Product Key.
+Before starting the server, run the `initials.py` setup script. This will launch a temporary WebUI setup portal.
 
 ```bash
 python3 initials.py
 ```
 
-Follow the on-screen prompts to:
-1. View system resources (RAM and Disk Space).
-2. Accept the Terms and Conditions.
-3. **Copy the generated SHA-256 Product Key** (you will need this to unlock the app).
+1. Open the **Setup URL** printed in your terminal (e.g., `http://<raspberry-pi-ip>:5000`) in your browser.
+2. Review your system resources and accept the Terms and Conditions.
+3. Click **Generate Product Key** and **copy the SHA-256 key** shown on screen (you will need it to unlock the app).
+4. The setup portal will automatically shut down, freeing up the port.
 
 ### 4. Run the Server
 

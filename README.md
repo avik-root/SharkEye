@@ -28,7 +28,7 @@ Every 30 seconds, SharkEye captures a batch of live traffic using `tshark`, extr
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                 Your Network Traffic                     │
+│                 Your Network Traffic                    │
 └───────────────────────┬─────────────────────────────────┘
                         │ tshark (-T ek NDJSON)
                         ▼

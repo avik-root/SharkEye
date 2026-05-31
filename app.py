@@ -2339,7 +2339,16 @@ def llm_pull():
     def generate():
         try:
             for progress in ollama.pull(model_name, stream=True):
-                yield f"data: {json.dumps(progress)}\n\n"
+                # Convert ProgressResponse to dict safely
+                if hasattr(progress, "model_dump"):
+                    p_data = progress.model_dump()
+                elif hasattr(progress, "dict"):
+                    p_data = progress.dict()
+                elif isinstance(progress, dict):
+                    p_data = progress
+                else:
+                    p_data = {k: v for k, v in vars(progress).items() if not k.startswith('_')}
+                yield f"data: {json.dumps(p_data)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             

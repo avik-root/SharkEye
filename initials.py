@@ -87,7 +87,8 @@ HTML = """
   <div class="card" id="setupCard">
     <div class="header">
       <h1>SharkEye Setup</h1>
-      <p>Network Intrusion Detection System</p>
+      <p style="color:var(--blue);font-weight:500;margin-bottom:0.5rem">Built by MintFire</p>
+      <p style="font-size:0.9rem;line-height:1.4">SharkEye is an offline, AI-powered Network Intrusion Detection System. It captures network traffic and uses a local LLM to detect malicious activities and anomalies in real-time.</p>
     </div>
     
     <div class="section">

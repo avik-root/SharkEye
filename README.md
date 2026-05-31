@@ -201,8 +201,8 @@ sudo python3 app.py
 Navigate to the Web UI at the IP address printed by the setup script (e.g., `http://<raspberry-pi-ip>:5000`).
 
 1. **Login** with the default credentials:
-   - User ID  : `sharkEYE`
-   - Password : `maintfire`
+   - User ID  : `sharkeye`
+   - Password : `mintfire`
 2. **Unlock**: You will be redirected to an activation page. Paste the **Product Key** generated in Step 3.
 3. **Install LLM**: Click the **🤖 LLM Manager** button in the top navigation bar to download your preferred AI model (e.g., `qwen2.5-coder:3b`).
 4. You are now in the dashboard!
@@ -282,8 +282,8 @@ The credential store is a bcrypt-hashed JSON file. Open a Python shell:
 ```python
 import bcrypt, json
 
-new_hash = bcrypt.hashpw(b"your_new_password", bcrypt.gensalt(12)).decode()
-store = {"sharkEYE": new_hash}
+new_hash = bcrypt.hashpw(b"new_password", bcrypt.gensalt(12)).decode()
+store = {"sharkeye": new_hash}
 
 # Path is printed at startup as "Auth store: ..."
 with open("/var/cache/.netaudit_meta_<hash>/idxmap.bin", "w") as f:
@@ -306,7 +306,7 @@ app.py absolute path
        │
        ▼
 /var/cache/.netaudit_meta_<12chars>/
-└── idxmap.bin   ← {"sharkEYE": "$2b$12$...bcrypt hash..."}
+└── idxmap.bin   ← {"sharkeye": "$2b$12$...bcrypt hash..."}
     chmod 600    ← only root can read
 ```
 

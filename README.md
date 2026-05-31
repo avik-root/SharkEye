@@ -450,10 +450,8 @@ For bugs, open a GitHub Issue with:
 ## 👤 Author
 
 **Avik Samanta**
-- GitHub: [@aviksamanta](https://github.com/aviksamanta)
+- GitHub: [Avik Samanta](https://github.com/avik-root)
 - Project: SharkEye NIDS for Raspberry Pi 5
-
-Presented at **Google DevFest 2026** 🎉
 
 ---
 

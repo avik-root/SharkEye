@@ -28,7 +28,7 @@ Every 30 seconds, SharkEye captures a batch of live traffic using `tshark`, extr
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                 Your Network Traffic                     │
+│                 Your Network Traffic                    │
 └───────────────────────┬─────────────────────────────────┘
                         │ tshark (-T ek NDJSON)
                         ▼
@@ -160,7 +160,6 @@ ollama_chat()            → JSON analysis
 | Python 3.10+ | `sudo apt install python3 python3-pip` |
 | tshark | `sudo apt install tshark` |
 | Ollama | `curl -fsSL https://ollama.com/install.sh \| sh` |
-| LLM model | `ollama pull qwen2.5-coder:3b` |
 | Python packages | See below |
 
 ### 1. Clone the repository
@@ -176,44 +175,39 @@ cd SharkEye
 pip install flask bcrypt ollama
 ```
 
-### 3. Run as root (required for raw packet capture)
+### 3. First-Time Setup (Important)
+
+Before starting the server, run the `initials.py` setup script to perform system checks, select your LLM model, and generate your Product Key.
+
+```bash
+python3 initials.py
+```
+
+Follow the on-screen prompts to:
+1. View system resources (RAM and Disk Space).
+2. Select an LLM model (the script will automatically pull it via Ollama).
+3. Accept the Terms and Conditions.
+4. **Copy the generated SHA-256 Product Key** (you will need this to unlock the app).
+
+### 4. Run the Server
+
+Run the main application as root (required for raw packet capture):
 
 ```bash
 sudo python3 app.py
 ```
 
-You will see:
+### 5. Access and Unlock
 
-```
-═══════════════════════════════════════════════════════
-  SharkEye – Network Intrusion Detection System
-  Raspberry Pi 5  |  Real-Time Packet Analysis
-═══════════════════════════════════════════════════════
+Navigate to the Web UI at the IP address printed by the setup script (e.g., `http://<raspberry-pi-ip>:5000`).
 
-  Dependency check:
-  [✓] flask
-  [✓] bcrypt
-  [✓] ollama
-
-[AUTH] Credentials initialised at /var/cache/.netaudit_meta_a3f9b2c71d40/idxmap.bin
-[INFO] tshark found.
-[INFO] Dashboard : http://0.0.0.0:5000 — login required
-═══════════════════════════════════════════════════════
-```
-
-### 4. Open the dashboard
-
-Navigate to `http://<raspberry-pi-ip>:5000` on any device on your network.
-
-### 5. Login
-
-```
-User ID  : sharkEYE
-Password : maintfire
-```
+1. **Login** with the default credentials:
+   - User ID  : `sharkEYE`
+   - Password : `maintfire`
+2. **Unlock**: You will be redirected to an activation page. Paste the **Product Key** generated in Step 3.
+3. You are now in the dashboard!
 
 > ⚠️ Change the default password immediately in production — see [Changing Credentials](#changing-credentials).
-
 ---
 
 ## 🖥️ Dashboard Walkthrough
@@ -456,10 +450,8 @@ For bugs, open a GitHub Issue with:
 ## 👤 Author
 
 **Avik Samanta**
-- GitHub: [@aviksamanta](https://github.com/aviksamanta)
+- GitHub: [Avik Samanta](https://github.com/avik-root)
 - Project: SharkEye NIDS for Raspberry Pi 5
-
-Presented at **Google DevFest 2026** 🎉
 
 ---
 

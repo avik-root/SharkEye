@@ -105,7 +105,7 @@ def init_credentials():
     """
     Create the secret directory and write bcrypt-hashed credentials
     if the credentials file does not yet exist.
-    Default credentials: sharkEYE / maintfire
+    Default credentials: sharkeye / mintfire
     """
     if not BCRYPT_OK:
         print("[AUTH] bcrypt unavailable – cannot init credentials.", flush=True)
@@ -122,12 +122,12 @@ def init_credentials():
     if not os.path.exists(creds_file):
         # Hash the default password (handle both string and bytes requirements for bcrypt)
         try:
-            pw_hash = _bcrypt.hashpw(b"maintfire", _bcrypt.gensalt(12))
+            pw_hash = _bcrypt.hashpw(b"mintfire", _bcrypt.gensalt(12))
         except TypeError:
-            pw_hash = _bcrypt.hashpw("maintfire", _bcrypt.gensalt(12))
+            pw_hash = _bcrypt.hashpw("mintfire", _bcrypt.gensalt(12))
             
         hash_str = pw_hash.decode() if isinstance(pw_hash, bytes) else pw_hash
-        store   = {"sharkEYE": hash_str}
+        store   = {"sharkeye": hash_str}
         with open(creds_file, "w") as fh:
             json.dump(store, fh)
         try:
@@ -556,7 +556,7 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
     </span>
     <span id="tsUpdated" style="font-size:.7rem;color:var(--muted)">—</span>
     <button onclick="openLlmManager()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.2rem .6rem;cursor:pointer;font-size:.72rem;transition:.2s;font-family:'Inter',sans-serif;font-weight:500" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface2)'">🤖 LLM Manager</button>
-    <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:.25rem">🔑 sharkEYE</span>
+    <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:.25rem">🔑 sharkeye</span>
     <a href="/logout" style="font-size:.72rem;color:var(--muted);text-decoration:none;
        border:1px solid var(--border);border-radius:5px;padding:.2rem .6rem;transition:.18s"
        onmouseover="this.style.color='var(--red)';this.style.borderColor='rgba(248,81,73,.5)'"

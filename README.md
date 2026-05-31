@@ -28,7 +28,7 @@ Every 30 seconds, SharkEye captures a batch of live traffic using `tshark`, extr
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                 Your Network Traffic                    │
+│                 Your Network Traffic                     │
 └───────────────────────┬─────────────────────────────────┘
                         │ tshark (-T ek NDJSON)
                         ▼
@@ -177,7 +177,7 @@ pip install flask bcrypt ollama
 
 ### 3. First-Time Setup (Important)
 
-Before starting the server, run the `initials.py` setup script to perform system checks, select your LLM model, and generate your Product Key.
+Before starting the server, run the `initials.py` setup script to perform system checks and generate your Product Key.
 
 ```bash
 python3 initials.py
@@ -185,9 +185,8 @@ python3 initials.py
 
 Follow the on-screen prompts to:
 1. View system resources (RAM and Disk Space).
-2. Select an LLM model (the script will automatically pull it via Ollama).
-3. Accept the Terms and Conditions.
-4. **Copy the generated SHA-256 Product Key** (you will need this to unlock the app).
+2. Accept the Terms and Conditions.
+3. **Copy the generated SHA-256 Product Key** (you will need this to unlock the app).
 
 ### 4. Run the Server
 
@@ -205,7 +204,8 @@ Navigate to the Web UI at the IP address printed by the setup script (e.g., `htt
    - User ID  : `sharkEYE`
    - Password : `maintfire`
 2. **Unlock**: You will be redirected to an activation page. Paste the **Product Key** generated in Step 3.
-3. You are now in the dashboard!
+3. **Install LLM**: Click the **🤖 LLM Manager** button in the top navigation bar to download your preferred AI model (e.g., `qwen2.5-coder:3b`).
+4. You are now in the dashboard!
 
 > ⚠️ Change the default password immediately in production — see [Changing Credentials](#changing-credentials).
 ---
@@ -450,8 +450,10 @@ For bugs, open a GitHub Issue with:
 ## 👤 Author
 
 **Avik Samanta**
-- GitHub: [Avik Samanta](https://github.com/avik-root)
+- GitHub: [@aviksamanta](https://github.com/aviksamanta)
 - Project: SharkEye NIDS for Raspberry Pi 5
+
+Presented at **Google DevFest 2026** 🎉
 
 ---
 

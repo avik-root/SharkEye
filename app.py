@@ -16,6 +16,7 @@ except ImportError:
     print("[BOOT] bcrypt not installed. Run: pip install bcrypt", flush=True)
 
 try:
+    import ollama
     from ollama import chat as ollama_chat
     OLLAMA_AVAILABLE = True
 except ImportError:
@@ -85,6 +86,21 @@ def _creds_path() -> str:
     return os.path.join(_get_secret_dir(), "idxmap.bin")   # innocuous filename
 
 
+def _setup_config_path() -> str:
+    return os.path.join(_get_secret_dir(), "setup_config.json")
+
+def load_setup_config() -> dict:
+    try:
+        with open(_setup_config_path(), "r") as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+def save_setup_config(cfg: dict):
+    with open(_setup_config_path(), "w") as fh:
+        json.dump(cfg, fh)
+
+
 def init_credentials():
     """
     Create the secret directory and write bcrypt-hashed credentials
@@ -104,9 +120,14 @@ def init_credentials():
 
     creds_file = _creds_path()
     if not os.path.exists(creds_file):
-        # Hash the default password
-        pw_hash = _bcrypt.hashpw(b"maintfire", _bcrypt.gensalt(12))
-        store   = {"sharkEYE": pw_hash.decode()}
+        # Hash the default password (handle both string and bytes requirements for bcrypt)
+        try:
+            pw_hash = _bcrypt.hashpw(b"maintfire", _bcrypt.gensalt(12))
+        except TypeError:
+            pw_hash = _bcrypt.hashpw("maintfire", _bcrypt.gensalt(12))
+            
+        hash_str = pw_hash.decode() if isinstance(pw_hash, bytes) else pw_hash
+        store   = {"sharkEYE": hash_str}
         with open(creds_file, "w") as fh:
             json.dump(store, fh)
         try:
@@ -116,6 +137,14 @@ def init_credentials():
         print(f"[AUTH] Credentials initialised at {creds_file}", flush=True)
     else:
         print(f"[AUTH] Credentials loaded from secret store.", flush=True)
+        
+    # Load settings from initials.py setup
+    cfg = load_setup_config()
+    global MODEL_NAME
+    if "model_name" in cfg:
+        MODEL_NAME = cfg["model_name"]
+    else:
+        print("[BOOT] \033[93mWarning: setup_config.json not found. Did you run initials.py?\033[0m", flush=True)
 
 
 def _load_store() -> dict:
@@ -136,6 +165,8 @@ def verify_login(username: str, password: str) -> bool:
         return False
     try:
         return _bcrypt.checkpw(password.encode(), store[username].encode())
+    except TypeError:
+        return _bcrypt.checkpw(password, store[username])
     except Exception:
         return False
 
@@ -146,9 +177,13 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not session.get("logged_in"):
             return redirect("/login")
+            
+        cfg = load_setup_config()
+        if not cfg.get("unlocked", False) and request.endpoint not in ["unlock_page", "logout"]:
+            return redirect("/unlock")
+            
         return f(*args, **kwargs)
     return decorated
-
 def log(msg: str, level: str = "info"):
     ts   = datetime.now().strftime("%H:%M:%S")
     line = f"[{ts}][{level.upper():5s}] {msg}"
@@ -520,7 +555,8 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
       <span class="dot"></span><span id="capText">Idle</span>
     </span>
     <span id="tsUpdated" style="font-size:.7rem;color:var(--muted)">—</span>
-    <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace">🔑 sharkEYE</span>
+    <button onclick="openLlmManager()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.2rem .6rem;cursor:pointer;font-size:.72rem;transition:.2s;font-family:'Inter',sans-serif;font-weight:500" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface2)'">🤖 LLM Manager</button>
+    <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:.25rem">🔑 sharkEYE</span>
     <a href="/logout" style="font-size:.72rem;color:var(--muted);text-decoration:none;
        border:1px solid var(--border);border-radius:5px;padding:.2rem .6rem;transition:.18s"
        onmouseover="this.style.color='var(--red)';this.style.borderColor='rgba(248,81,73,.5)'"
@@ -529,6 +565,16 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
 </nav>
 
 <div class="wrap">
+
+  <!-- LLM Warning Banner -->
+  <div id="llmWarningBanner" style="display:none;background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.4);color:var(--text);padding:1rem;border-radius:12px;margin-bottom:1.5rem;align-items:center;gap:1rem;box-shadow:0 4px 15px rgba(0,0,0,.2)">
+    <span style="font-size:1.8rem">⚠️</span>
+    <div style="flex:1">
+      <h3 style="margin-bottom:.2rem;color:var(--red)">No LLM Installed</h3>
+      <p style="font-size:.85rem;color:var(--muted)">AI Analysis will not work. Please open the LLM Manager to install a model.</p>
+    </div>
+    <button onclick="openLlmManager()" style="background:var(--red);color:#fff;border:none;padding:.6rem 1rem;border-radius:6px;font-weight:600;cursor:pointer">Open Manager</button>
+  </div>
 
   <!-- INTERFACE PICKER -->
   <div class="iface-card">
@@ -712,6 +758,55 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
     </div>
   </div>
 
+  <!-- LLM MODAL -->
+  <div class="modal-overlay" id="llmOverlay" onclick="if(event.target===this)closeLlmManager()">
+    <div class="modal" style="width:min(600px,95vw)">
+      <div class="modal-head">
+        <span class="modal-title">🤖 LLM Manager</span>
+        <button class="modal-close" onclick="closeLlmManager()">✕</button>
+      </div>
+      <div style="padding:1.5rem">
+        <h3 style="margin-bottom:.5rem;color:var(--blue)">Installed Models</h3>
+        <div id="installedModelsList" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1.5rem;font-size:.85rem;color:var(--muted)">Loading...</div>
+        
+        <h3 style="margin-bottom:.5rem;color:var(--green)">Available Models</h3>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;color:var(--text)">qwen2.5-coder:3b</div>
+              <div style="font-size:.75rem;color:var(--muted)">Fast & Smart (~2GB) - Recommended</div>
+            </div>
+            <button onclick="pullLlm('qwen2.5-coder:3b')" style="background:var(--green);color:#000;border:none;padding:.4rem .8rem;border-radius:4px;font-weight:600;cursor:pointer">Install</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;color:var(--text)">llama3.2:3b</div>
+              <div style="font-size:.75rem;color:var(--muted)">General reasoning (~2GB)</div>
+            </div>
+            <button onclick="pullLlm('llama3.2:3b')" style="background:var(--green);color:#000;border:none;padding:.4rem .8rem;border-radius:4px;font-weight:600;cursor:pointer">Install</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0">
+            <div>
+              <div style="font-weight:600;color:var(--text)">mistral:7b</div>
+              <div style="font-size:.75rem;color:var(--muted)">High accuracy (~4GB)</div>
+            </div>
+            <button onclick="pullLlm('mistral:7b')" style="background:var(--green);color:#000;border:none;padding:.4rem .8rem;border-radius:4px;font-weight:600;cursor:pointer">Install</button>
+          </div>
+        </div>
+        
+        <div id="llmProgressArea" style="display:none;margin-top:1.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:.3rem">
+            <span id="llmProgressText" style="color:var(--text)">Downloading...</span>
+            <span id="llmProgressPct" style="color:var(--blue)">0%</span>
+          </div>
+          <div style="width:100%;background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
+            <div id="llmProgressBar" style="width:0%;height:100%;background:var(--blue);transition:width .2s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /wrap -->
 
 <div class="toast-area" id="toastArea"></div>
@@ -724,6 +819,107 @@ let batchCount    = 0;
 let lineChart, donutChart;
 let lastData      = null;   // stores latest /stats response for modal
 let batchHistory  = [];     // [{ts, packets, ips, anom, mal}]
+
+/* ── LLM Manager ───────────────────────────────────────────── */
+function openLlmManager() {
+  document.getElementById('llmOverlay').style.display = 'flex';
+  refreshLlmList();
+}
+function closeLlmManager() {
+  document.getElementById('llmOverlay').style.display = 'none';
+}
+async function refreshLlmList() {
+  const container = document.getElementById('installedModelsList');
+  container.innerHTML = 'Loading...';
+  try {
+    const res = await fetch('/api/llm/list').then(r=>r.json());
+    if (res.error) {
+      container.innerHTML = `<span style="color:var(--red)">${res.error}</span>`;
+      return;
+    }
+    const models = res.models || [];
+    if (models.length === 0) {
+      container.innerHTML = 'No models installed.';
+      document.getElementById('llmWarningBanner').style.display = 'flex';
+    } else {
+      document.getElementById('llmWarningBanner').style.display = 'none';
+      container.innerHTML = models.map(m => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--surface2)">
+          <div>
+            <span style="font-weight:600;color:var(--text)">${m.name}</span>
+            <span style="font-size:.7rem;color:var(--muted);margin-left:.5rem">${Math.round(m.size/1e9*10)/10} GB</span>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button onclick="selectLlm('${m.name}')" style="background:var(--surface2);color:var(--blue);border:1px solid var(--border);padding:.3rem .6rem;border-radius:4px;cursor:pointer">Use</button>
+            <button onclick="deleteLlm('${m.name}')" style="background:rgba(248,81,73,.1);color:var(--red);border:1px solid rgba(248,81,73,.3);padding:.3rem .6rem;border-radius:4px;cursor:pointer">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    container.innerHTML = 'Error loading models.';
+  }
+}
+
+async function deleteLlm(name) {
+  if(!confirm(`Delete model ${name}?`)) return;
+  await fetch('/api/llm/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({model: name})
+  });
+  refreshLlmList();
+}
+
+async function selectLlm(name) {
+  await fetch('/api/llm/select', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({model: name})
+  });
+  showToast(`Active model set to ${name}`, 'ok');
+}
+
+let llmEvtSource = null;
+function pullLlm(name) {
+  if (llmEvtSource) llmEvtSource.close();
+  document.getElementById('llmProgressArea').style.display = 'block';
+  document.getElementById('llmProgressText').innerText = `Pulling ${name}...`;
+  document.getElementById('llmProgressText').style.color = 'var(--text)';
+  const bar = document.getElementById('llmProgressBar');
+  const pct = document.getElementById('llmProgressPct');
+  bar.style.width = '0%';
+  pct.innerText = '0%';
+  
+  llmEvtSource = new EventSource(`/api/llm/pull?model=${name}`);
+  llmEvtSource.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    if (data.error) {
+      document.getElementById('llmProgressText').innerText = `Error: ${data.error}`;
+      document.getElementById('llmProgressText').style.color = 'var(--red)';
+      llmEvtSource.close();
+      return;
+    }
+    document.getElementById('llmProgressText').innerText = data.status || 'Downloading...';
+    if (data.total && data.completed) {
+      const p = Math.round((data.completed / data.total) * 100);
+      bar.style.width = p + '%';
+      pct.innerText = p + '%';
+    }
+    if (data.status === 'success') {
+      document.getElementById('llmProgressText').innerText = 'Complete!';
+      document.getElementById('llmProgressText').style.color = 'var(--green)';
+      bar.style.width = '100%';
+      pct.innerText = '100%';
+      llmEvtSource.close();
+      setTimeout(() => {
+        document.getElementById('llmProgressArea').style.display = 'none';
+        document.getElementById('llmProgressText').style.color = 'var(--text)';
+        refreshLlmList();
+      }, 2000);
+    }
+  };
+}
+
+setTimeout(refreshLlmList, 1000);
 
 /* ── Chart init ───────────────────────────────────────────── */
 if (typeof Chart === 'undefined') {
@@ -1483,6 +1679,105 @@ input:focus{
 </html>
 """
 
+# ========================= UNLOCK HTML =========================
+UNLOCK_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SharkEye – Product Unlock</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --green:#3fb950;--red:#f85149;--blue:#58a6ff;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif}
+body{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  background: radial-gradient(ellipse at 50% 0%, rgba(88,166,255,.08) 0%, transparent 70%),
+              var(--bg);
+}
+.card{ width:100%;max-width:400px;padding:0 1.25rem; }
+.logo{ text-align:center;margin-bottom:2rem; }
+.logo-icon{font-size:2.8rem;display:block;margin-bottom:.5rem}
+.logo-title{ font-size:1.3rem;font-weight:700;letter-spacing:-.01em; }
+.logo-sub{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+.form-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:2rem;
+  box-shadow:0 8px 40px rgba(0,0,0,.55);
+}
+.form-group{margin-bottom:1.1rem}
+label{
+  display:block;font-size:.72rem;font-weight:600;
+  color:var(--muted);text-transform:uppercase;
+  letter-spacing:.07em;margin-bottom:.45rem;
+}
+input[type=text]{
+  width:100%;padding:.6rem .85rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:7px;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:.85rem;
+  outline:none;transition:.2s;text-align:center;letter-spacing:1px;
+}
+input:focus{
+  border-color:rgba(88,166,255,.6);
+  box-shadow:0 0 0 3px rgba(88,166,255,.12);
+}
+.btn-login{
+  width:100%;padding:.7rem;border:none;border-radius:7px;
+  background:linear-gradient(135deg,#1f6feb,#388bfd);
+  color:#fff;font-size:.88rem;font-weight:600;
+  cursor:pointer;transition:.2s;letter-spacing:.01em;
+  margin-top:.35rem;
+}
+.btn-login:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn-login:active{transform:none;filter:none}
+.error-msg{
+  background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.35);
+  border-radius:6px;padding:.55rem .85rem;
+  font-size:.78rem;color:var(--red);margin-bottom:.9rem;
+  display:flex;align-items:center;gap:.45rem;
+}
+.footer{
+  text-align:center;margin-top:1.3rem;
+  font-size:.68rem;color:var(--muted);opacity:.55;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <span class="logo-icon">🔐</span>
+    <div class="logo-title">Activate SharkEye</div>
+    <div class="logo-sub">First-Time Setup Verification</div>
+  </div>
+
+  <div class="form-box">
+    {% if error %}
+    <div class="error-msg">⚠ {{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/unlock" autocomplete="off">
+      <div class="form-group">
+        <label for="pkey">Product Key</label>
+        <input type="text" id="pkey" name="product_key"
+               placeholder="XXXX-XXXX-XXXX-XXXX" required autofocus>
+      </div>
+      <button type="submit" class="btn-login">Unlock Dashboard</button>
+    </form>
+  </div>
+
+  <div class="footer">Enter the SHA-256 Product Key generated by initials.py</div>
+</div>
+</body>
+</html>
+"""
+
 # ========================= BACKEND =========================
 
 def check_root():
@@ -1922,6 +2217,29 @@ def login_page():
             error = "Invalid user ID or password."
     return render_template_string(LOGIN_HTML, error=error, username=username)
 
+@app.route("/unlock", methods=["GET", "POST"])
+@login_required
+def unlock_page():
+    cfg = load_setup_config()
+    if cfg.get("unlocked", False):
+        return redirect("/")
+        
+    error = ""
+    if request.method == "POST":
+        key = request.form.get("product_key", "").strip()
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        
+        if key_hash == cfg.get("product_key_hash", ""):
+            cfg["unlocked"] = True
+            save_setup_config(cfg)
+            log("App unlocked successfully via Product Key.", "ok")
+            return redirect("/")
+        else:
+            log("Invalid Product Key attempt.", "warn")
+            error = "Invalid Product Key. Please check your initials.py output."
+            
+    return render_template_string(UNLOCK_HTML, error=error)
+
 
 @app.route("/logout")
 def logout():
@@ -1935,6 +2253,59 @@ def logout():
 @login_required
 def index():
     return render_template_string(HTML)
+
+@app.route("/api/llm/list")
+@login_required
+def llm_list():
+    if not OLLAMA_AVAILABLE:
+        return jsonify({"error": "Ollama library not installed."})
+    try:
+        models = ollama.list()
+        return jsonify({"models": models.get('models', [])})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route("/api/llm/delete", methods=["POST"])
+@login_required
+def llm_delete():
+    if not OLLAMA_AVAILABLE:
+        return jsonify({"error": "Ollama library not installed."})
+    model_name = request.json.get("model")
+    try:
+        ollama.delete(model_name)
+        log(f"Deleted LLM model: {model_name}", "ok")
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        log(f"Failed to delete model {model_name}: {e}", "error")
+        return jsonify({"error": str(e)})
+
+@app.route("/api/llm/select", methods=["POST"])
+@login_required
+def llm_select():
+    model_name = request.json.get("model")
+    cfg = load_setup_config()
+    cfg["model_name"] = model_name
+    save_setup_config(cfg)
+    global MODEL_NAME
+    MODEL_NAME = model_name
+    log(f"Active LLM model set to: {model_name}", "ok")
+    return jsonify({"status": "ok"})
+
+@app.route("/api/llm/pull")
+@login_required
+def llm_pull():
+    model_name = request.args.get("model")
+    if not model_name:
+        return "Missing model name", 400
+
+    def generate():
+        try:
+            for progress in ollama.pull(model_name, stream=True):
+                yield f"data: {json.dumps(progress)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            
+    return Response(generate(), mimetype="text/event-stream")
 
 @app.route("/api/interfaces")
 @login_required
@@ -2153,4 +2524,4 @@ if __name__ == "__main__":
     log("Dashboard : http://0.0.0.0:5000 — login required", "ok")
     print("\033[96m" + "=" * 55 + "\033[0m\n")
 
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)

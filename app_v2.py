@@ -26,7 +26,9 @@ app = Flask(__name__)
 
 # ── Flask session secret (deterministic per installation, not guessable) ─────
 def _derive_secret(tag: str) -> str:
-    seed = os.path.abspath(__file__) + tag + "SharkEye_salt_2025"
+    # Hardcode to app.py so V2 shares the exact same product key and credentials as V1
+    base_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+    seed = base_file + tag + "SharkEye_salt_2025"
     return hashlib.sha256(seed.encode()).hexdigest()
 
 app.secret_key = _derive_secret("session_key")
@@ -74,7 +76,9 @@ def _get_secret_dir() -> str:
     Stored under /var/cache (running as root) or ~/.cache otherwise,
     inside a directory named after a plausible-looking system artefact.
     """
-    script_hash = hashlib.sha256(os.path.abspath(__file__).encode()).hexdigest()
+    # Hardcode to app.py so V2 shares the exact same secret dir as V1
+    base_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+    script_hash = hashlib.sha256(base_file.encode()).hexdigest()
     dir_name    = f".netaudit_meta_{script_hash[:12]}"   # looks like a cache dir
     return os.path.join("/var/tmp", dir_name)
 

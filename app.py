@@ -46,6 +46,7 @@ latest_report  = {}
 is_capturing   = False
 capture_thread = None
 history        = []
+incident_log   = []
 state_lock     = threading.Lock()
 _start_lock    = threading.Lock()
 
@@ -151,10 +152,32 @@ def init_credentials():
     # Load settings from initials.py setup
     cfg = load_setup_config()
     global MODEL_NAME
-    if "model_name" in cfg:
+    if "model_name" in cfg and cfg["model_name"]:
         MODEL_NAME = cfg["model_name"]
     else:
-        print("[BOOT] \033[93mWarning: setup_config.json not found. Did you run initials.py?\033[0m", flush=True)
+        # If blank or missing, try to auto-detect from installed models
+        try:
+            if OLLAMA_AVAILABLE:
+                import ollama
+                models_resp = ollama.list()
+                if hasattr(models_resp, 'models'):
+                    models_list = [getattr(m, 'model', getattr(m, 'name', '')) for m in models_resp.models]
+                else:
+                    models_list = [m.get("name", m.get("model", "")) for m in models_resp.get("models", [])]
+                
+                models_list = [m for m in models_list if m]
+                if models_list:
+                    MODEL_NAME = models_list[0]
+                    cfg["model_name"] = MODEL_NAME
+                    save_setup_config(cfg)
+                    print(f"[BOOT] Auto-selected active LLM: {MODEL_NAME}", flush=True)
+                else:
+                    MODEL_NAME = ""
+        except Exception:
+            MODEL_NAME = ""
+            
+        if "model_name" not in cfg:
+            print("[BOOT] \033[93mWarning: setup_config.json not found. Did you run initials.py?\033[0m", flush=True)
 
 
 def _load_store() -> dict:
@@ -613,6 +636,7 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
     <button class="btn"       id="clrBtn"   onclick="clearLog()">🗑 Clear Log</button>
     <button class="btn"       id="scrollBtn" onclick="toggleScroll()">📌 Auto-scroll: ON</button>
     <button class="btn"       onclick="openHistory()">📅 History</button>
+    <button class="btn"       onclick="openIncidents()">🚨 Incidents <span id="incCount" style="background:var(--red);color:#fff;padding:0 6px;border-radius:10px;font-size:.7rem;margin-left:4px;display:none">0</span></button>
     <span class="hint">Stats refresh every 5 s</span>
   </div>
 
@@ -744,6 +768,19 @@ table.ip-t{width:100%;border-collapse:collapse;font-size:.8rem}
     </div>
   </div>
 
+  <!-- INCIDENTS MODAL -->
+  <div class="modal-overlay" id="incidentsOverlay" onclick="if(event.target===this)closeIncidents()">
+    <div class="modal" style="width:min(800px,95vw);max-height:85vh">
+      <div class="modal-head">
+        <span class="modal-title">🚨 Incident & Recommendation Log</span>
+        <button class="modal-close" onclick="closeIncidents()">✕</button>
+      </div>
+      <div class="modal-body" id="incidentsList" style="flex:1;overflow-y:auto;padding:1.5rem;background:var(--bg)">
+        <!-- Incidents injected here -->
+      </div>
+    </div>
+  </div>
+
   <!-- HISTORY MODAL -->
   <div class="modal-overlay" id="historyOverlay" onclick="if(event.target===this)closeHistory()">
     <div class="modal" style="width:min(860px,97vw);max-height:88vh">
@@ -829,6 +866,7 @@ let batchCount    = 0;
 let lineChart, donutChart;
 let lastData      = null;   // stores latest /stats response for modal
 let batchHistory  = [];     // [{ts, packets, ips, anom, mal}]
+let incidentsData = [];     // incident log
 
 /* ── LLM Manager ───────────────────────────────────────────── */
 function openLlmManager() {
@@ -1145,6 +1183,22 @@ function updateUI(d) {
     document.getElementById('analysisBox').textContent = t.trim() || JSON.stringify(an, null, 2);
   }
 
+  // Incidents
+  if (d.incident_log) {
+    incidentsData = d.incident_log;
+    const cnt = incidentsData.length;
+    const badge = document.getElementById('incCount');
+    if (cnt > 0) {
+      badge.style.display = 'inline-block';
+      badge.innerText = cnt;
+    } else {
+      badge.style.display = 'none';
+    }
+    if (document.getElementById('incidentsOverlay').classList.contains('open')) {
+      renderIncidents();
+    }
+  }
+
   // Line chart
   if (lineChart && Array.isArray(d.history) && d.history.length) {
     lineChart.data.labels           = d.history.map(e => e.timestamp);
@@ -1348,6 +1402,46 @@ function clearLog() { termLog.innerHTML = ''; }
 function toggleScroll() {
   autoScroll = !autoScroll;
   document.getElementById('scrollBtn').textContent = '📌 Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+}
+
+/* ── Incidents modal ─────────────────────────────────────────── */
+function openIncidents() {
+  document.getElementById('incidentsOverlay').classList.add('open');
+  renderIncidents();
+}
+function closeIncidents() {
+  document.getElementById('incidentsOverlay').classList.remove('open');
+}
+function renderIncidents() {
+  const container = document.getElementById('incidentsList');
+  if (!incidentsData || incidentsData.length === 0) {
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem 0">No malicious events detected in this session.</div>';
+    return;
+  }
+  
+  const reversed = [...incidentsData].reverse();
+  container.innerHTML = reversed.map(inc => {
+    return `
+      <div style="background:var(--surface2);border:1px solid rgba(248,81,73,0.3);border-radius:8px;padding:1rem;margin-bottom:1rem">
+        <div style="font-weight:600;color:var(--text);margin-bottom:.5rem;display:flex;justify-content:space-between">
+          <span style="color:var(--red)">🚨 Incident</span>
+          <span style="color:var(--muted);font-weight:400;font-size:.8rem">${inc.timestamp}</span>
+        </div>
+        <div style="margin-bottom:.8rem">
+          <div style="font-size:.75rem;text-transform:uppercase;color:var(--red);letter-spacing:.05em;margin-bottom:.3rem">Issues Detected</div>
+          <ul style="margin:0;padding-left:1.2rem;color:var(--text);font-size:.9rem;line-height:1.4">
+            ${inc.issues.map(i => `<li style="margin-bottom:.3rem">${i}</li>`).join('')}
+          </ul>
+        </div>
+        <div>
+          <div style="font-size:.75rem;text-transform:uppercase;color:var(--green);letter-spacing:.05em;margin-bottom:.3rem">Implementations & Recommendations</div>
+          <ul style="margin:0;padding-left:1.2rem;color:var(--text);font-size:.9rem;line-height:1.4">
+            ${inc.implementations && inc.implementations.length ? inc.implementations.map(r => `<li style="margin-bottom:.3rem">${r}</li>`).join('') : '<li style="color:var(--muted)">No specific recommendations provided.</li>'}
+          </ul>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* ── History modal ──────────────────────────────────────────── */
@@ -2005,6 +2099,8 @@ def strip_fences(text):
 def analyze(prompt):
     if not OLLAMA_AVAILABLE:
         return {"error": "Ollama Python library not installed (pip install ollama)"}
+    if not MODEL_NAME:
+        return {"error": "No active LLM found. Please open the LLM Manager to select or install a model."}
     content = ""
     try:
         resp    = ollama_chat(model=MODEL_NAME,
@@ -2020,7 +2116,7 @@ def analyze(prompt):
 # ── Capture loop ───────────────────────────────────────────────────
 
 def capture_and_analyze():
-    global latest_report, history, is_capturing, _tshark_ok, _session_start, _session_end
+    global latest_report, history, incident_log, is_capturing, _tshark_ok, _session_start, _session_end
     batch = 0
     _session_start = datetime.now()
     _session_end   = None
@@ -2112,6 +2208,15 @@ def capture_and_analyze():
                 })
                 if len(history) > HISTORY_LENGTH:
                     history = history[-HISTORY_LENGTH:]
+                
+                # Append to incident log if malicious
+                malicious = analysis_.get("malicious_activities", [])
+                if malicious:
+                    incident_log.append({
+                        "timestamp": report["timestamp"],
+                        "issues": malicious,
+                        "implementations": analysis_.get("recommendations", [])
+                    })
 
             # ── Persist to disk ──
             save_batch_to_history(report, batch)
@@ -2298,8 +2403,16 @@ def llm_list():
     if not OLLAMA_AVAILABLE:
         return jsonify({"error": "Ollama library not installed."})
     try:
-        models = ollama.list()
-        return jsonify({"models": models.get('models', [])})
+        models_resp = ollama.list()
+        models_list = []
+        if hasattr(models_resp, 'models'):
+            for m in models_resp.models:
+                name = getattr(m, 'model', getattr(m, 'name', ''))
+                size = getattr(m, 'size', 0)
+                models_list.append({"name": name, "size": size})
+        else:
+            models_list = models_resp.get('models', [])
+        return jsonify({"models": models_list})
     except Exception as e:
         return jsonify({"error": str(e)})
 
@@ -2386,6 +2499,7 @@ def stats_route():
     with state_lock:
         rep  = latest_report.copy() if latest_report else {}
         hist = list(history)
+        incidents = list(incident_log)
 
     an = rep.get("analysis", {})
     anomalies = an.get("anomalies_detected", 0)
@@ -2403,7 +2517,8 @@ def stats_route():
         "analysis":             an,
         "proto":                rep.get("protocol_distribution", {"tcp":0,"udp":0,"other":0}),
         "top_src_ips":          rep.get("top_src_ips", {}),
-        "history":              hist
+        "history":              hist,
+        "incident_log":         incidents
     })
 
 @app.route("/start", methods=["POST"])

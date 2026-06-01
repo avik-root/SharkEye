@@ -687,7 +687,7 @@ HTML = r"""<!DOCTYPE html>
       let cls = 't-info';
       if(lvl==='ok') cls='t-ok'; if(lvl==='err') cls='t-err'; if(lvl==='warn') cls='t-warn';
       const row = document.createElement('div');
-      row.innerHTML = \`<span class="t-ts">[\${ts}]</span><span class="\${cls}">\${text}</span>\`;
+      row.innerHTML = `<span class="t-ts">[${ts}]</span><span class="${cls}">${text}</span>`;
       b.appendChild(row);
       if(b.childNodes.length > 600) b.firstChild.remove();
       b.scrollTop = b.scrollHeight;
@@ -729,15 +729,15 @@ HTML = r"""<!DOCTYPE html>
         // Badges
         const bc = document.getElementById('bCapture');
         bc.className = 'badge ' + (d.capturing ? 'busy' : '');
-        bc.innerHTML = \`<div class="dot"></div> \${d.capturing ? 'Capture: Active' : 'Capture: Idle'}\`;
+        bc.innerHTML = `<div class="dot"></div> ${d.capturing ? 'Capture: Active' : 'Capture: Idle'}`;
         
         const bo = document.getElementById('bOllama');
         bo.className = 'badge ' + (d.ollama_ok ? 'ok' : 'err');
-        bo.innerHTML = \`<div class="dot"></div> \${d.ollama_ok ? 'Ollama: Running' : 'Ollama: Down'}\`;
+        bo.innerHTML = `<div class="dot"></div> ${d.ollama_ok ? 'Ollama: Running' : 'Ollama: Down'}`;
         
         const bt = document.getElementById('bTshark');
         bt.className = 'badge ' + (d.tshark_ok ? 'ok' : 'err');
-        bt.innerHTML = \`<div class="dot"></div> \${d.tshark_ok ? 'tshark: Ready' : 'tshark: Error'}\`;
+        bt.innerHTML = `<div class="dot"></div> ${d.tshark_ok ? 'tshark: Ready' : 'tshark: Error'}`;
         
         // Buttons
         isCapturing = d.capturing;
@@ -772,10 +772,10 @@ HTML = r"""<!DOCTYPE html>
         if(Object.keys(d.analysis||{}).length) {
           const an = d.analysis;
           let txt = '';
-          if(an.summary) txt += \`[ SUMMARY ]\\n\${an.summary}\\n\\n\`;
-          if(an.malicious_activities && an.malicious_activities.length) txt += \`[ 🚨 MALICIOUS ]\\n\${an.malicious_activities.join('\\n')}\\n\\n\`;
-          if(an.recommendations && an.recommendations.length) txt += \`[ 💡 RECOMMENDATIONS ]\\n\${an.recommendations.join('\\n')}\\n\`;
-          if(an.error) txt = \`[ ERROR ]\\n\${an.error}\`;
+          if(an.summary) txt += `[ SUMMARY ]\n${an.summary}\n\n`;
+          if(an.malicious_activities && an.malicious_activities.length) txt += `[ 🚨 MALICIOUS ]\n${an.malicious_activities.join('\n')}\n\n`;
+          if(an.recommendations && an.recommendations.length) txt += `[ 💡 RECOMMENDATIONS ]\n${an.recommendations.join('\n')}\n`;
+          if(an.error) txt = `[ ERROR ]\n${an.error}`;
           document.getElementById('dSummary').textContent = txt.trim();
         }
         
@@ -801,28 +801,28 @@ HTML = r"""<!DOCTYPE html>
       
       const reversed = [...incidentsData].reverse();
       container.innerHTML = reversed.map(inc => {
-        return \`
+        return `
           <div class="inc-card">
             <div class="inc-head">
               <div class="inc-badge">Incident Detected</div>
-              <div style="font-size:.8rem;color:var(--muted)">\${inc.timestamp}</div>
+              <div style="font-size:.8rem;color:var(--muted)">${inc.timestamp}</div>
             </div>
             <div class="inc-grid">
               <div>
                 <div class="inc-title" style="color:var(--red)">Identified Issues</div>
                 <ul class="inc-list">
-                  \${inc.issues.map(i => \`<li>\${i}</li>\`).join('')}
+                  ${inc.issues.map(i => `<li>${i}</li>`).join('')}
                 </ul>
               </div>
               <div>
                 <div class="inc-title" style="color:var(--green)">AI Recommendations</div>
                 <ul class="inc-list">
-                  \${inc.implementations && inc.implementations.length ? inc.implementations.map(r => \`<li>\${r}</li>\`).join('') : '<li style="color:var(--muted)">No recommendations provided.</li>'}
+                  ${inc.implementations && inc.implementations.length ? inc.implementations.map(r => `<li>${r}</li>`).join('') : '<li style="color:var(--muted)">No recommendations provided.</li>'}
                 </ul>
               </div>
             </div>
           </div>
-        \`;
+        `;
       }).join('');
     }
 
@@ -831,7 +831,7 @@ HTML = r"""<!DOCTYPE html>
       const sel = document.getElementById('ifaceSel');
       try {
         const d = await fetch('/api/interfaces').then(r=>r.json());
-        sel.innerHTML = d.interfaces.map(i=>\`<option value="\${i}">\${i}</option>\`).join('');
+        sel.innerHTML = d.interfaces.map(i=>`<option value="${i}">${i}</option>`).join('');
       } catch(e) { sel.innerHTML = '<option>Error loading</option>'; }
     }
     
@@ -862,25 +862,25 @@ HTML = r"""<!DOCTYPE html>
       try {
         const res = await fetch('/api/llm/list').then(r=>r.json());
         if (res.error) {
-          container.innerHTML = \`<div style="color:var(--red);margin-bottom:1rem">Error: \${res.error}</div><button class="btn primary" onclick="installOllama()">Auto-Install Ollama</button>\`;
+          container.innerHTML = `<div style="color:var(--red);margin-bottom:1rem">Error: ${res.error}</div><button class="btn primary" onclick="installOllama()">Auto-Install Ollama</button>`;
           return;
         }
         const models = res.models || [];
         if (models.length === 0) {
           container.innerHTML = '<div style="color:var(--muted)">No models installed.</div>';
         } else {
-          container.innerHTML = models.map(m => \`
+          container.innerHTML = models.map(m => `
             <div class="llm-item">
               <div>
-                <div style="font-weight:600;color:var(--text);margin-bottom:.2rem">\${m.name}</div>
-                <div style="font-size:.7rem;color:var(--muted)">\${Math.round(m.size/1e9*10)/10} GB</div>
+                <div style="font-weight:600;color:var(--text);margin-bottom:.2rem">${m.name}</div>
+                <div style="font-size:.7rem;color:var(--muted)">${Math.round(m.size/1e9*10)/10} GB</div>
               </div>
               <div style="display:flex;gap:.5rem">
-                <button class="btn success" style="padding:.4rem .8rem;font-size:.8rem" onclick="selectLlm('\${m.name}')">Activate</button>
-                <button class="btn danger" style="padding:.4rem .8rem;font-size:.8rem" onclick="deleteLlm('\${m.name}')">Delete</button>
+                <button class="btn success" style="padding:.4rem .8rem;font-size:.8rem" onclick="selectLlm('${m.name}')">Activate</button>
+                <button class="btn danger" style="padding:.4rem .8rem;font-size:.8rem" onclick="deleteLlm('${m.name}')">Delete</button>
               </div>
             </div>
-          \`).join('');
+          `).join('');
         }
       } catch(e) { container.innerHTML = '<div style="color:var(--red)">Error loading models.</div>'; }
     }
@@ -897,14 +897,14 @@ HTML = r"""<!DOCTYPE html>
     }
 
     async function deleteLlm(name) {
-      if(!confirm(\`Delete \${name}?\`)) return;
+      if(!confirm(`Delete ${name}?`)) return;
       await fetch('/api/llm/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({model: name}) });
       refreshLlmList(); showToast('Model deleted', 'ok');
     }
 
     async function selectLlm(name) {
       await fetch('/api/llm/select', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({model: name}) });
-      showToast(\`Active model set to \${name}. Refreshing page...\`, 'ok');
+      showToast(`Active model set to ${name}. Refreshing page...`, 'ok');
       setTimeout(()=>location.reload(), 1000);
     }
     
@@ -913,15 +913,15 @@ HTML = r"""<!DOCTYPE html>
       if(!name) return alert("Enter model name");
       if (llmEvtSource) llmEvtSource.close();
       document.getElementById('llmProgressArea').style.display = 'block';
-      document.getElementById('llmProgressText').innerText = \`Pulling \${name}...\`;
+      document.getElementById('llmProgressText').innerText = `Pulling ${name}...`;
       document.getElementById('llmProgressText').style.color = 'var(--text)';
       document.getElementById('llmProgressBar').style.width = '0%';
       document.getElementById('llmProgressPct').innerText = '0%';
       
-      llmEvtSource = new EventSource(\`/api/llm/pull?model=\${name}\`);
+      llmEvtSource = new EventSource(`/api/llm/pull?model=${name}`);
       llmEvtSource.onmessage = function(e) {
         const data = JSON.parse(e.data);
-        if (data.error) { document.getElementById('llmProgressText').innerText = \`Error: \${data.error}\`; document.getElementById('llmProgressText').style.color = 'var(--red)'; llmEvtSource.close(); return; }
+        if (data.error) { document.getElementById('llmProgressText').innerText = `Error: ${data.error}`; document.getElementById('llmProgressText').style.color = 'var(--red)'; llmEvtSource.close(); return; }
         if (data.status) document.getElementById('llmProgressText').innerText = data.status;
         if (data.total && data.completed) {
           const pct = Math.round((data.completed / data.total) * 100);
@@ -949,19 +949,19 @@ HTML = r"""<!DOCTYPE html>
         if(!dates.length) { list.innerHTML = '<div style="padding:1rem;color:var(--muted)">No history saved.</div>'; return; }
         list.innerHTML = dates.map(d => {
           const hasMal = d.total_malicious > 0;
-          return \`
-            <button class="hist-date-btn" onclick="loadHistoryDay('\${d.date}', this)">
-              <div class="hist-date-dot \${hasMal ? 'warn' : ''}"></div>
+          return `
+            <button class="hist-date-btn" onclick="loadHistoryDay('${d.date}', this)">
+              <div class="hist-date-dot ${hasMal ? 'warn' : ''}"></div>
               <div>
-                <div style="font-weight:600">\${d.date}</div>
-                <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">\${d.session_count} sess • \${d.total_packets.toLocaleString()} pkts</div>
+                <div style="font-weight:600">${d.date}</div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">${d.session_count} sess • ${d.total_packets.toLocaleString()} pkts</div>
               </div>
             </button>
-          \`;
+          `;
         }).join('');
         const firstBtn = list.querySelector('.hist-date-btn');
         if (firstBtn) firstBtn.click();
-      } catch(e) { list.innerHTML = \`<div style="color:var(--red);padding:1rem">Error: \${e}</div>\`; }
+      } catch(e) { list.innerHTML = `<div style="color:var(--red);padding:1rem">Error: ${e}</div>`; }
     }
     
     async function loadHistoryDay(date, btn) {
@@ -971,7 +971,7 @@ HTML = r"""<!DOCTYPE html>
       main.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center">Loading data for ' + date + '...</div>';
       
       try {
-        const day = await fetch(\`/api/history/\${date}\`).then(r => r.json());
+        const day = await fetch(`/api/history/${date}`).then(r => r.json());
         const sessions = Object.values(day.sessions || {});
         if (!sessions.length) { main.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">No sessions.</div>'; return; }
         
@@ -979,59 +979,65 @@ HTML = r"""<!DOCTYPE html>
         sessions.forEach((sess, si) => {
           const smal  = sess.batches.reduce((a,b) => a + (b.malicious||[]).length, 0);
           const spkt  = sess.batches.reduce((a,b) => a + b.packet_count, 0);
-          html += \`
+          html += `
             <div class="sess-card">
               <div class="sess-head">
                 <div>
-                  <div style="font-weight:600;color:#fff">📶 Session \${si+1} (\${sess.interface})</div>
-                  <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">ID: \${sess.session_id}</div>
+                  <div style="font-weight:600;color:#fff">📶 Session ${si+1} (${sess.interface})</div>
+                  <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">ID: ${sess.session_id}</div>
                 </div>
                 <div style="text-align:right">
-                  <div style="font-size:.8rem;color:var(--muted)">\${sess.session_start}</div>
-                  <div style="font-size:.7rem;color:var(--muted)">\${sess.duration_s}s duration</div>
+                  <div style="font-size:.8rem;color:var(--muted)">${sess.session_start}</div>
+                  <div style="font-size:.7rem;color:var(--muted)">${sess.duration_s}s duration</div>
                 </div>
               </div>
               <div class="sess-stats">
-                <div class="sess-stat"><div class="sess-stat-label">Batches</div><div class="sess-stat-val">\${sess.batches.length}</div></div>
-                <div class="sess-stat"><div class="sess-stat-label">Packets</div><div class="sess-stat-val">\${spkt.toLocaleString()}</div></div>
-                <div class="sess-stat"><div class="sess-stat-label">Malicious</div><div class="sess-stat-val" style="color:\${smal>0?'var(--red)':'var(--green)'}">\${smal}</div></div>
+                <div class="sess-stat"><div class="sess-stat-label">Batches</div><div class="sess-stat-val">${sess.batches.length}</div></div>
+                <div class="sess-stat"><div class="sess-stat-label">Packets</div><div class="sess-stat-val">${spkt.toLocaleString()}</div></div>
+                <div class="sess-stat"><div class="sess-stat-label">Malicious</div><div class="sess-stat-val" style="color:${smal>0?'var(--red)':'var(--green)'}">${smal}</div></div>
               </div>
               <div style="padding:1rem;border-top:1px solid var(--border);max-height:300px;overflow-y:auto;background:var(--bg)">
-                \${sess.batches.map(b => \`
+                ${sess.batches.map(b => `
                   <div style="margin-bottom:1rem;border-bottom:1px dashed var(--border);padding-bottom:1rem">
                     <div style="display:flex;justify-content:space-between;margin-bottom:.5rem">
-                      <span style="color:var(--blue);font-family:monospace;font-size:.8rem">\${b.timestamp}</span>
-                      <span style="font-size:.8rem;color:var(--muted)">\${b.packet_count} pkts</span>
+                      <span style="color:var(--blue);font-family:monospace;font-size:.8rem">${b.timestamp}</span>
+                      <span style="font-size:.8rem;color:var(--muted)">${b.packet_count} pkts</span>
                     </div>
-                    <div style="font-size:.85rem;color:var(--muted);line-height:1.4">\${b.summary||b.error||'No summary'}</div>
+                    <div style="font-size:.85rem;color:var(--muted);line-height:1.4">${b.summary||b.error||'No summary'}</div>
                   </div>
-                \`).join('')}
+                `).join('')}
               </div>
             </div>
-          \`;
+          `;
         });
         main.innerHTML = html;
-      } catch(e) { main.innerHTML = \`<div style="color:var(--red);padding:2rem">Error: \${e}</div>\`; }
+      } catch(e) { main.innerHTML = `<div style="color:var(--red);padding:2rem">Error: ${e}</div>`; }
     }
 
     /* ── Boot ──────────────────────────────────────────────────── */
     window.onload = () => {
-      initCharts();
-      loadIfaces();
-      fetchStats();
-      setInterval(fetchStats, 5000);
-      refreshLlmList();
+      try { initCharts(); } catch(e) { console.error('Chart init failed:', e); }
+      try { loadIfaces(); } catch(e) { console.error('Interface load failed:', e); }
+      try { fetchStats(); } catch(e) { console.error('Stats fetch failed:', e); }
+      setInterval(() => { try { fetchStats(); } catch(e){} }, 5000);
+      try { refreshLlmList(); } catch(e) { console.error('LLM list failed:', e); }
       
-      const es = new EventSource('/stream');
-      const sts = document.getElementById('sseStatus');
-      es.onopen = () => { sts.textContent = '🟢 live'; sts.style.color = 'var(--green)'; };
-      es.onerror = () => { sts.textContent = '🔴 disconnected'; sts.style.color = 'var(--red)'; };
-      es.onmessage = e => {
-        try {
-          const logData = JSON.parse(e.data);
-          logTerm(logData.message, logData.level);
-        } catch(err){}
-      };
+      try {
+        const es = new EventSource('/logs/stream');
+        const sts = document.getElementById('sseStatus');
+        if (sts) {
+          es.onopen = () => { sts.textContent = '🟢 live'; sts.style.color = 'var(--green)'; };
+          es.onerror = () => { sts.textContent = '🔴 disconnected'; sts.style.color = 'var(--red)'; };
+        }
+        es.onmessage = e => {
+          try {
+            const logData = JSON.parse(e.data);
+            logTerm(logData.message || e.data, logData.level || 'info');
+          } catch(err){
+            logTerm(e.data, 'info');
+          }
+        };
+      } catch(e) { console.error('SSE failed:', e); }
     };
   </script>
 </body>

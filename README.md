@@ -24,6 +24,24 @@
 
 **SharkEye** is a self-hosted Network Intrusion Detection System (NIDS) that combines deep packet inspection with local Large Language Model inference to detect and report malicious network activity — all running on a **Raspberry Pi 5**, entirely offline.
 
+---
+
+## 🚀 NEW: SharkEye V2 Dashboard
+
+SharkEye now features an all-new V2 web application (`app_v2.py`). This massive upgrade transforms the basic tool into an **enterprise-grade, dark-mode cybersecurity dashboard**.
+
+### 🔥 V2 Exclusive Features:
+- **Tabbed Interface**: Clean sidebar navigation separating the Overview, Live Capture, AI Incidents, History, and Settings.
+- **Advanced Visualizations**: Beautiful, animated line and donut charts tracking traffic volume and protocol distributions in real-time.
+- **Incident Control Center**: A dedicated tab listing every single malicious incident and the corresponding AI mitigation strategies.
+- **Integrated LLM Manager**: Directly manage, install, and swap Ollama models without ever leaving the dashboard.
+- **Glassmorphism UI**: Stunning neon accents, transparent blur effects, and smooth micro-animations.
+
+**To run the new V2 Dashboard:**
+```bash
+sudo python3 app_v2.py
+```
+
 Every 30 seconds, SharkEye captures a batch of live traffic using `tshark`, extracts packet metadata, deduplicates it, and feeds it to a locally-running LLM (`qwen2.5-coder:3b` via Ollama) which classifies anomalies, identifies malicious patterns, and generates security recommendations — all displayed in a premium real-time web dashboard.
 
 ```

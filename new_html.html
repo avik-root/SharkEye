@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SharkEye V2 - Premium NIDS</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --bg: #09090b;
+      --surface: #18181b;
+      --surface2: #27272a;
+      --border: #3f3f46;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      
+      --blue: #3b82f6;
+      --blue-glow: rgba(59, 130, 246, 0.4);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.4);
+      --red: #f43f5e;
+      --red-glow: rgba(244, 63, 94, 0.4);
+      --yellow: #f59e0b;
+      
+      --sidebar-width: 250px;
+    }
+    
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+    
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1rem;
+      z-index: 10;
+    }
+    .brand {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: 2.5rem; padding: 0 .5rem;
+    }
+    .brand-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--blue), #60a5fa);
+      border-radius: 8px;
+      box-shadow: 0 0 15px var(--blue-glow);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.2rem; color: #fff;
+    }
+    .brand-text {
+      font-size: 1.25rem; font-weight: 700; letter-spacing: 1px;
+    }
+    .brand-text span { color: var(--blue); }
+    
+    .nav-btn {
+      background: transparent; border: none;
+      color: var(--muted); font-size: 1rem; font-weight: 500;
+      text-align: left; padding: .8rem 1rem; border-radius: 8px;
+      margin-bottom: .5rem; cursor: pointer;
+      transition: all 0.2s;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-btn.active {
+      background: var(--blue-glow); color: #fff;
+      box-shadow: inset 4px 0 0 var(--blue);
+    }
+    .nav-badge {
+      background: var(--red); color: #fff;
+      font-size: .7rem; padding: .1rem .4rem; border-radius: 12px;
+      display: none; font-weight: 600;
+    }
+    
+    .sidebar-footer {
+      margin-top: auto; padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: .8rem; color: var(--muted); text-align: center;
+    }
+    
+    /* ── Main Content ── */
+    .main-content {
+      flex: 1; display: flex; flex-direction: column;
+      position: relative; overflow-y: auto; overflow-x: hidden;
+    }
+    .topbar {
+      height: 70px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; background: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 9;
+    }
+    .status-badges { display: flex; gap: 1rem; }
+    .badge {
+      padding: .4rem .8rem; border-radius: 20px; font-size: .75rem; font-weight: 600;
+      display: flex; align-items: center; gap: .5rem; background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .badge.ok .dot { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+    .badge.err .dot { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+    .badge.busy .dot { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse 1s infinite; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    
+    .tab-content { display: none; padding: 2rem; animation: fadein 0.3s; }
+    .tab-content.active { display: block; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* ── Grid Layouts ── */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative; overflow: hidden;
+    }
+    .card.glow-red { border-color: rgba(244,63,94,0.5); box-shadow: 0 0 20px var(--red-glow); }
+    
+    .stat-title { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: .5rem; }
+    .stat-val { font-size: 2.5rem; font-weight: 700; line-height: 1; margin-bottom: .5rem; color: #fff; }
+    .stat-sub { font-size: .8rem; color: var(--muted); }
+    
+    .card-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 1rem 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* ── Buttons & Inputs ── */
+    .btn {
+      background: var(--surface2); color: #fff; border: 1px solid var(--border);
+      padding: .6rem 1.2rem; border-radius: 8px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: .5rem;
+    }
+    .btn:hover:not(:disabled) { background: var(--border); }
+    .btn.primary { background: var(--blue); border-color: var(--blue); box-shadow: 0 0 10px var(--blue-glow); }
+    .btn.primary:hover:not(:disabled) { background: #2563eb; }
+    .btn.danger { background: rgba(244,63,94,0.1); color: var(--red); border-color: rgba(244,63,94,0.3); }
+    .btn.danger:hover:not(:disabled) { background: rgba(244,63,94,0.2); }
+    .btn.success { background: rgba(16,185,129,0.1); color: var(--green); border-color: rgba(16,185,129,0.3); }
+    .btn.success:hover:not(:disabled) { background: rgba(16,185,129,0.2); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    select.form-ctrl {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      padding: .6rem 1rem; border-radius: 8px; font-size: 1rem; width: 100%;
+    }
+    
+    /* ── Terminal ── */
+    .term {
+      background: #000; font-family: 'Fira Code', monospace; font-size: .85rem;
+      padding: 1rem; border-radius: 8px; height: 400px; overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+    .term .t-ok { color: var(--green); }
+    .term .t-err { color: var(--red); }
+    .term .t-warn { color: var(--yellow); }
+    .term .t-info { color: var(--blue); }
+    .term .t-ts { color: var(--muted); margin-right: .5rem; }
+    
+    /* ── Incidents UI ── */
+    .inc-card {
+      background: var(--bg); border: 1px solid rgba(244,63,94,0.3);
+      border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
+      border-left: 4px solid var(--red);
+    }
+    .inc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: .8rem; }
+    .inc-badge { background: rgba(244,63,94,0.15); color: var(--red); padding: .2rem .6rem; border-radius: 4px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .inc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .inc-title { font-size: .8rem; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; margin-bottom: .5rem; font-weight: 600; }
+    .inc-list { margin: 0; padding-left: 1.2rem; color: #fff; font-size: .95rem; line-height: 1.6; }
+    .inc-list li { margin-bottom: .4rem; }
+    
+    /* ── Settings / LLM ── */
+    .llm-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: .8rem;
+      background: var(--bg);
+    }
+    .llm-item:hover { border-color: var(--muted); }
+    
+    /* ── History UI ── */
+    .hist-grid { display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; height: calc(100vh - 150px); }
+    .hist-dates { overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    .hist-main { overflow-y: auto; padding-right: .5rem; }
+    .hist-date-btn {
+      width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border);
+      padding: 1rem; color: var(--text); cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 1rem;
+    }
+    .hist-date-btn:hover { background: rgba(255,255,255,0.05); }
+    .hist-date-btn.active { background: var(--blue-glow); box-shadow: inset 3px 0 0 var(--blue); }
+    .hist-date-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); }
+    .hist-date-dot.warn { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+    
+    .sess-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 1.5rem; overflow: hidden;
+    }
+    .sess-head { padding: 1rem; background: var(--surface2); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .sess-stats { display: grid; grid-template-columns: repeat(4, 1fr); padding: 1rem; gap: 1rem; }
+    .sess-stat { text-align: center; padding: .5rem; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+    .sess-stat-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; }
+    .sess-stat-val { font-size: 1.2rem; font-weight: 700; color: #fff; margin-top: .3rem; }
+    
+    /* Toast */
+    .toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: var(--surface2); color: #fff; padding: 12px 20px; border-radius: 8px; border-left: 4px solid var(--blue); box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: slideIn 0.3s forwards; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">S</div>
+      <div class="brand-text">Shark<span>Eye</span><span style="font-size:.7rem;color:var(--muted);vertical-align:top;margin-left:4px">v2</span></div>
+    </div>
+    
+    <button class="nav-btn active" data-tab="dashboard">
+      <span>📊 Overview</span>
+    </button>
+    <button class="nav-btn" data-tab="live">
+      <span>📡 Live Capture</span>
+    </button>
+    <button class="nav-btn" data-tab="incidents">
+      <span>🚨 Incidents <span class="nav-badge" id="navIncBadge">0</span></span>
+    </button>
+    <button class="nav-btn" data-tab="history">
+      <span>📅 History</span>
+    </button>
+    <button class="nav-btn" data-tab="settings">
+      <span>⚙️ Settings & LLM</span>
+    </button>
+    
+    <div class="sidebar-footer">
+      <div>MintFire Security</div>
+      <div style="font-size:.7rem;margin-top:.3rem">Connected to Core</div>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-content">
+    
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="status-badges">
+        <div class="badge" id="bCapture"><div class="dot"></div> Capture: Idle</div>
+        <div class="badge" id="bOllama"><div class="dot"></div> Ollama</div>
+        <div class="badge" id="bTshark"><div class="dot"></div> tshark</div>
+      </div>
+      <div>
+        <a href="/logout" style="color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:500;transition:color .2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='var(--muted)'">Log Out →</a>
+      </div>
+    </div>
+
+    <!-- TAB: DASHBOARD -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="card-title" style="font-size:1.5rem;margin-bottom:1.5rem">Security Overview</div>
+      
+      <div class="grid-4">
+        <div class="card">
+          <div class="stat-title">Packets (Batch)</div>
+          <div class="stat-val" id="dPackets">0</div>
+          <div class="stat-sub">Live traffic volume</div>
+        </div>
+        <div class="card">
+          <div class="stat-title">Unique IPs</div>
+          <div class="stat-val" id="dIPs">0</div>
+          <div class="stat-sub">Communicating hosts</div>
+        </div>
+        <div class="card" id="cardAnom">
+          <div class="stat-title">Anomalies</div>
+          <div class="stat-val" id="dAnom" style="color:var(--yellow)">0</div>
+          <div class="stat-sub">Suspicious behaviors</div>
+        </div>
+        <div class="card" id="cardMal">
+          <div class="stat-title">Malicious</div>
+          <div class="stat-val" id="dMal" style="color:var(--red)">0</div>
+          <div class="stat-sub">Critical threats</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Traffic Volume History</div>
+          <canvas id="volChart" height="250"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Protocol Distribution</div>
+          <canvas id="protoChart" height="250"></canvas>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">Latest AI Analysis Summary</div>
+        <pre id="dSummary" style="background:var(--bg);padding:1rem;border-radius:8px;border:1px solid var(--border);color:var(--muted);font-family:monospace;white-space:pre-wrap;font-size:.85rem;min-height:100px;">Waiting for capture batch...</pre>
+      </div>
+    </div>
+
+    <!-- TAB: LIVE CAPTURE -->
+    <div class="tab-content" id="tab-live">
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title">Capture Controls</div>
+        <div style="display:flex;gap:1rem;align-items:center">
+          <select id="ifaceSel" class="form-ctrl" style="max-width:300px">
+            <option value="">Loading interfaces...</option>
+          </select>
+          <button class="btn success" id="startBtn" onclick="startCapture()">▶ Start</button>
+          <button class="btn danger" id="stopBtn" onclick="stopCapture()" disabled>⏹ Stop</button>
+          <button class="btn" onclick="document.getElementById('termLog').innerHTML=''">🗑 Clear</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">Real-Time Log <span id="sseStatus" style="font-size:.8rem;color:var(--muted);font-weight:400">connecting...</span></div>
+        <div class="term" id="termLog"></div>
+      </div>
+    </div>
+
+    <!-- TAB: INCIDENTS -->
+    <div class="tab-content" id="tab-incidents">
+      <div class="card-title" style="font-size:1.5rem;margin-bottom:1.5rem">Incident & Recommendation Log</div>
+      <div id="incidentsList">
+        <div style="text-align:center;color:var(--muted);padding:4rem 0;background:var(--surface);border-radius:12px;border:1px dashed var(--border)">
+          <div style="font-size:3rem;margin-bottom:1rem">🛡️</div>
+          <div style="font-size:1.1rem;font-weight:500;color:#fff">System Secure</div>
+          <p>No malicious events detected during this session.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORY -->
+    <div class="tab-content" id="tab-history">
+      <div class="card-title" style="font-size:1.5rem;margin-bottom:1.5rem">Historical Audits</div>
+      <div class="hist-grid">
+        <div class="hist-dates">
+          <div style="padding:1rem;border-bottom:1px solid var(--border);font-weight:600;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:1px">Saved Dates</div>
+          <div id="histDateList">Loading...</div>
+        </div>
+        <div class="hist-main" id="histMain">
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Select a date from the left to view details.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="tab-content" id="tab-settings">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">LLM Manager</div>
+          <p style="color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;line-height:1.5">Manage local AI models via Ollama. SharkEye requires a model to analyze packet batches. We recommend <code style="color:var(--blue)">qwen2.5-coder:3b</code> or <code style="color:var(--blue)">mistral:7b</code>.</p>
+          
+          <div style="margin-bottom:1.5rem;background:var(--bg);padding:1rem;border-radius:8px;border:1px solid var(--border)">
+            <div class="stat-title">Currently Active</div>
+            <div style="font-size:1.2rem;font-weight:600;color:var(--green)">{{ active_model }}</div>
+          </div>
+          
+          <div class="stat-title" style="margin-bottom:.8rem">Installed Models</div>
+          <div id="installedModelsList">Loading...</div>
+        </div>
+        
+        <div class="card">
+          <div class="card-title">Install New Model</div>
+          <div style="display:flex;gap:.5rem;margin-bottom:1.5rem">
+            <input type="text" id="pullName" class="form-ctrl" placeholder="e.g. qwen2.5-coder:3b" style="background:var(--bg);border:1px solid var(--border);color:#fff;padding:.6rem 1rem;border-radius:8px;width:100%">
+            <button class="btn primary" onclick="pullLlm(document.getElementById('pullName').value)">Pull</button>
+          </div>
+          
+          <div id="llmProgressArea" style="display:none;background:var(--bg);padding:1.5rem;border-radius:8px;border:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.8rem;font-size:.9rem;font-weight:500">
+              <span id="llmProgressText">Starting...</span>
+              <span id="llmProgressPct" style="color:var(--blue)">0%</span>
+            </div>
+            <div style="height:8px;background:var(--surface);border-radius:4px;overflow:hidden">
+              <div id="llmProgressBar" style="height:100%;background:var(--blue);width:0%;transition:width .2s"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div><!-- /main-content -->
+
+  <div class="toast-area" id="toastArea"></div>
+
+  <script>
+    /* ── UI Logic ──────────────────────────────────────────────── */
+    const tabs = document.querySelectorAll('.nav-btn');
+    const contents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(t => {
+      t.addEventListener('click', () => {
+        tabs.forEach(btn => btn.classList.remove('active'));
+        contents.forEach(cnt => cnt.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+        
+        if(t.dataset.tab === 'history') openHistory();
+      });
+    });
+
+    function showToast(msg, type='info') {
+      const area = document.getElementById('toastArea');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      if(type==='err') el.style.borderLeftColor = 'var(--red)';
+      if(type==='ok')  el.style.borderLeftColor = 'var(--green)';
+      if(type==='warn') el.style.borderLeftColor = 'var(--yellow)';
+      el.innerText = msg;
+      area.appendChild(el);
+      setTimeout(()=>el.remove(), 4000);
+    }
+    
+    function logTerm(text, lvl) {
+      const b = document.getElementById('termLog');
+      const ts = new Date().toLocaleTimeString('en-GB',{hour12:false});
+      let cls = 't-info';
+      if(lvl==='ok') cls='t-ok'; if(lvl==='err') cls='t-err'; if(lvl==='warn') cls='t-warn';
+      const row = document.createElement('div');
+      row.innerHTML = \`<span class="t-ts">[\${ts}]</span><span class="\${cls}">\${text}</span>\`;
+      b.appendChild(row);
+      if(b.childNodes.length > 600) b.firstChild.remove();
+      b.scrollTop = b.scrollHeight;
+    }
+
+    /* ── State & Charts ────────────────────────────────────────── */
+    let isCapturing = false;
+    let selectedIface = '';
+    let incidentsData = [];
+    let volChart, protoChart;
+    
+    function initCharts() {
+      Chart.defaults.color = '#a1a1aa';
+      Chart.defaults.font.family = 'Inter';
+      
+      const ctxV = document.getElementById('volChart').getContext('2d');
+      const grad = ctxV.createLinearGradient(0,0,0,250);
+      grad.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+      grad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+      
+      volChart = new Chart(ctxV, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Packets', data: [], borderColor: '#3b82f6', backgroundColor: grad, fill: true, tension: 0.4, pointRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: {beginAtZero:true, grid:{color:'#3f3f46'}}, x:{grid:{display:false}} } }
+      });
+      
+      protoChart = new Chart(document.getElementById('protoChart').getContext('2d'), {
+        type: 'doughnut',
+        data: { labels: ['TCP','UDP','Other'], datasets: [{ data: [1,1,1], backgroundColor: ['#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'right' } } }
+      });
+    }
+
+    /* ── Polling & SSE ─────────────────────────────────────────── */
+    async function fetchStats() {
+      try {
+        const d = await fetch('/stats').then(r=>r.json());
+        
+        // Badges
+        const bc = document.getElementById('bCapture');
+        bc.className = 'badge ' + (d.capturing ? 'busy' : '');
+        bc.innerHTML = \`<div class="dot"></div> \${d.capturing ? 'Capture: Active' : 'Capture: Idle'}\`;
+        
+        const bo = document.getElementById('bOllama');
+        bo.className = 'badge ' + (d.ollama_ok ? 'ok' : 'err');
+        bo.innerHTML = \`<div class="dot"></div> \${d.ollama_ok ? 'Ollama: Running' : 'Ollama: Down'}\`;
+        
+        const bt = document.getElementById('bTshark');
+        bt.className = 'badge ' + (d.tshark_ok ? 'ok' : 'err');
+        bt.innerHTML = \`<div class="dot"></div> \${d.tshark_ok ? 'tshark: Ready' : 'tshark: Error'}\`;
+        
+        // Buttons
+        isCapturing = d.capturing;
+        document.getElementById('startBtn').disabled = isCapturing;
+        document.getElementById('stopBtn').disabled = !isCapturing;
+        
+        // Stats
+        document.getElementById('dPackets').innerText = d.total_packets.toLocaleString();
+        document.getElementById('dIPs').innerText = d.unique_src_ips.toLocaleString();
+        document.getElementById('dAnom').innerText = d.anomalies_detected.toLocaleString();
+        document.getElementById('dMal').innerText = (d.analysis?.malicious_activities || []).length;
+        
+        if (d.analysis?.malicious_activities?.length > 0) {
+          document.getElementById('cardMal').classList.add('glow-red');
+        } else {
+          document.getElementById('cardMal').classList.remove('glow-red');
+        }
+        
+        // Charts
+        if(d.history && d.history.length) {
+          volChart.data.labels = d.history.map(x=>x.timestamp);
+          volChart.data.datasets[0].data = d.history.map(x=>x.packet_count);
+          volChart.update('none');
+        }
+        const p = d.proto || {};
+        if((p.tcp||0)+(p.udp||0)+(p.other||0) > 0) {
+          protoChart.data.datasets[0].data = [p.tcp||0, p.udp||0, p.other||0];
+          protoChart.update('none');
+        }
+        
+        // Summary
+        if(Object.keys(d.analysis||{}).length) {
+          const an = d.analysis;
+          let txt = '';
+          if(an.summary) txt += \`[ SUMMARY ]\\n\${an.summary}\\n\\n\`;
+          if(an.malicious_activities && an.malicious_activities.length) txt += \`[ 🚨 MALICIOUS ]\\n\${an.malicious_activities.join('\\n')}\\n\\n\`;
+          if(an.recommendations && an.recommendations.length) txt += \`[ 💡 RECOMMENDATIONS ]\\n\${an.recommendations.join('\\n')}\\n\`;
+          if(an.error) txt = \`[ ERROR ]\\n\${an.error}\`;
+          document.getElementById('dSummary').textContent = txt.trim();
+        }
+        
+        // Incidents
+        if (d.incident_log) {
+          incidentsData = d.incident_log;
+          const badg = document.getElementById('navIncBadge');
+          if(incidentsData.length > 0) {
+            badg.style.display = 'inline-block';
+            badg.innerText = incidentsData.length;
+          } else {
+            badg.style.display = 'none';
+          }
+          renderIncidents();
+        }
+
+      } catch(e) { console.error('fetchStats error', e); }
+    }
+
+    function renderIncidents() {
+      const container = document.getElementById('incidentsList');
+      if (!incidentsData || incidentsData.length === 0) return;
+      
+      const reversed = [...incidentsData].reverse();
+      container.innerHTML = reversed.map(inc => {
+        return \`
+          <div class="inc-card">
+            <div class="inc-head">
+              <div class="inc-badge">Incident Detected</div>
+              <div style="font-size:.8rem;color:var(--muted)">\${inc.timestamp}</div>
+            </div>
+            <div class="inc-grid">
+              <div>
+                <div class="inc-title" style="color:var(--red)">Identified Issues</div>
+                <ul class="inc-list">
+                  \${inc.issues.map(i => \`<li>\${i}</li>\`).join('')}
+                </ul>
+              </div>
+              <div>
+                <div class="inc-title" style="color:var(--green)">AI Recommendations</div>
+                <ul class="inc-list">
+                  \${inc.implementations && inc.implementations.length ? inc.implementations.map(r => \`<li>\${r}</li>\`).join('') : '<li style="color:var(--muted)">No recommendations provided.</li>'}
+                </ul>
+              </div>
+            </div>
+          </div>
+        \`;
+      }).join('');
+    }
+
+    /* ── Controls ──────────────────────────────────────────────── */
+    async function loadIfaces() {
+      const sel = document.getElementById('ifaceSel');
+      try {
+        const d = await fetch('/api/interfaces').then(r=>r.json());
+        sel.innerHTML = d.interfaces.map(i=>\`<option value="\${i}">\${i}</option>\`).join('');
+      } catch(e) { sel.innerHTML = '<option>Error loading</option>'; }
+    }
+    
+    async function startCapture() {
+      const ifc = document.getElementById('ifaceSel').value;
+      if(!ifc) return alert("Select an interface!");
+      document.getElementById('startBtn').disabled = true;
+      try {
+        await fetch('/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({interface:ifc})});
+        showToast('Capture started', 'ok');
+        setTimeout(fetchStats, 1000);
+      } catch(e) { showToast('Start failed: '+e, 'err'); document.getElementById('startBtn').disabled = false; }
+    }
+    
+    async function stopCapture() {
+      document.getElementById('stopBtn').disabled = true;
+      try {
+        await fetch('/stop', {method:'POST'});
+        showToast('Capture stopped', 'info');
+        setTimeout(fetchStats, 1000);
+      } catch(e) { showToast('Stop failed: '+e, 'err'); document.getElementById('stopBtn').disabled = false; }
+    }
+    
+    /* ── LLM Management ────────────────────────────────────────── */
+    async function refreshLlmList() {
+      const container = document.getElementById('installedModelsList');
+      container.innerHTML = '<div style="color:var(--muted)">Loading...</div>';
+      try {
+        const res = await fetch('/api/llm/list').then(r=>r.json());
+        if (res.error) {
+          container.innerHTML = \`<div style="color:var(--red);margin-bottom:1rem">Error: \${res.error}</div><button class="btn primary" onclick="installOllama()">Auto-Install Ollama</button>\`;
+          return;
+        }
+        const models = res.models || [];
+        if (models.length === 0) {
+          container.innerHTML = '<div style="color:var(--muted)">No models installed.</div>';
+        } else {
+          container.innerHTML = models.map(m => \`
+            <div class="llm-item">
+              <div>
+                <div style="font-weight:600;color:var(--text);margin-bottom:.2rem">\${m.name}</div>
+                <div style="font-size:.7rem;color:var(--muted)">\${Math.round(m.size/1e9*10)/10} GB</div>
+              </div>
+              <div style="display:flex;gap:.5rem">
+                <button class="btn success" style="padding:.4rem .8rem;font-size:.8rem" onclick="selectLlm('\${m.name}')">Activate</button>
+                <button class="btn danger" style="padding:.4rem .8rem;font-size:.8rem" onclick="deleteLlm('\${m.name}')">Delete</button>
+              </div>
+            </div>
+          \`).join('');
+        }
+      } catch(e) { container.innerHTML = '<div style="color:var(--red)">Error loading models.</div>'; }
+    }
+
+    async function installOllama() {
+      const btn = event.target;
+      btn.innerText = "Starting...";
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/llm/install_ollama', {method:'POST'}).then(r=>r.json());
+        if (res.status === 'manual') { window.open('https://ollama.com/download/mac', '_blank'); alert(res.msg); btn.innerText = "Download for Mac"; btn.disabled = false; }
+        else { alert(res.msg); btn.innerText = "Installing (Check terminal)"; }
+      } catch(e) { alert(e); btn.innerText = "Error"; }
+    }
+
+    async function deleteLlm(name) {
+      if(!confirm(\`Delete \${name}?\`)) return;
+      await fetch('/api/llm/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({model: name}) });
+      refreshLlmList(); showToast('Model deleted', 'ok');
+    }
+
+    async function selectLlm(name) {
+      await fetch('/api/llm/select', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({model: name}) });
+      showToast(\`Active model set to \${name}. Refreshing page...\`, 'ok');
+      setTimeout(()=>location.reload(), 1000);
+    }
+    
+    let llmEvtSource = null;
+    function pullLlm(name) {
+      if(!name) return alert("Enter model name");
+      if (llmEvtSource) llmEvtSource.close();
+      document.getElementById('llmProgressArea').style.display = 'block';
+      document.getElementById('llmProgressText').innerText = \`Pulling \${name}...\`;
+      document.getElementById('llmProgressText').style.color = 'var(--text)';
+      document.getElementById('llmProgressBar').style.width = '0%';
+      document.getElementById('llmProgressPct').innerText = '0%';
+      
+      llmEvtSource = new EventSource(\`/api/llm/pull?model=\${name}\`);
+      llmEvtSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        if (data.error) { document.getElementById('llmProgressText').innerText = \`Error: \${data.error}\`; document.getElementById('llmProgressText').style.color = 'var(--red)'; llmEvtSource.close(); return; }
+        if (data.status) document.getElementById('llmProgressText').innerText = data.status;
+        if (data.total && data.completed) {
+          const pct = Math.round((data.completed / data.total) * 100);
+          document.getElementById('llmProgressBar').style.width = pct + '%';
+          document.getElementById('llmProgressPct').innerText = pct + '%';
+        }
+        if (data.status === 'success') {
+          document.getElementById('llmProgressText').innerText = "Download complete!";
+          document.getElementById('llmProgressText').style.color = 'var(--green)';
+          llmEvtSource.close();
+          refreshLlmList();
+          showToast('Model downloaded successfully', 'ok');
+        }
+      };
+      llmEvtSource.onerror = function() { llmEvtSource.close(); };
+    }
+
+    /* ── History Logic ─────────────────────────────────────────── */
+    async function openHistory() {
+      const list = document.getElementById('histDateList');
+      list.innerHTML = '<div style="padding:1rem;color:var(--muted)">Loading...</div>';
+      try {
+        const data = await fetch('/api/history').then(r=>r.json());
+        const dates = data.dates || [];
+        if(!dates.length) { list.innerHTML = '<div style="padding:1rem;color:var(--muted)">No history saved.</div>'; return; }
+        list.innerHTML = dates.map(d => {
+          const hasMal = d.total_malicious > 0;
+          return \`
+            <button class="hist-date-btn" onclick="loadHistoryDay('\${d.date}', this)">
+              <div class="hist-date-dot \${hasMal ? 'warn' : ''}"></div>
+              <div>
+                <div style="font-weight:600">\${d.date}</div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">\${d.session_count} sess • \${d.total_packets.toLocaleString()} pkts</div>
+              </div>
+            </button>
+          \`;
+        }).join('');
+        const firstBtn = list.querySelector('.hist-date-btn');
+        if (firstBtn) firstBtn.click();
+      } catch(e) { list.innerHTML = \`<div style="color:var(--red);padding:1rem">Error: \${e}</div>\`; }
+    }
+    
+    async function loadHistoryDay(date, btn) {
+      document.querySelectorAll('.hist-date-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const main = document.getElementById('histMain');
+      main.innerHTML = '<div style="padding:2rem;color:var(--muted);text-align:center">Loading data for ' + date + '...</div>';
+      
+      try {
+        const day = await fetch(\`/api/history/\${date}\`).then(r => r.json());
+        const sessions = Object.values(day.sessions || {});
+        if (!sessions.length) { main.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">No sessions.</div>'; return; }
+        
+        let html = '';
+        sessions.forEach((sess, si) => {
+          const smal  = sess.batches.reduce((a,b) => a + (b.malicious||[]).length, 0);
+          const spkt  = sess.batches.reduce((a,b) => a + b.packet_count, 0);
+          html += \`
+            <div class="sess-card">
+              <div class="sess-head">
+                <div>
+                  <div style="font-weight:600;color:#fff">📶 Session \${si+1} (\${sess.interface})</div>
+                  <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">ID: \${sess.session_id}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:.8rem;color:var(--muted)">\${sess.session_start}</div>
+                  <div style="font-size:.7rem;color:var(--muted)">\${sess.duration_s}s duration</div>
+                </div>
+              </div>
+              <div class="sess-stats">
+                <div class="sess-stat"><div class="sess-stat-label">Batches</div><div class="sess-stat-val">\${sess.batches.length}</div></div>
+                <div class="sess-stat"><div class="sess-stat-label">Packets</div><div class="sess-stat-val">\${spkt.toLocaleString()}</div></div>
+                <div class="sess-stat"><div class="sess-stat-label">Malicious</div><div class="sess-stat-val" style="color:\${smal>0?'var(--red)':'var(--green)'}">\${smal}</div></div>
+              </div>
+              <div style="padding:1rem;border-top:1px solid var(--border);max-height:300px;overflow-y:auto;background:var(--bg)">
+                \${sess.batches.map(b => \`
+                  <div style="margin-bottom:1rem;border-bottom:1px dashed var(--border);padding-bottom:1rem">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:.5rem">
+                      <span style="color:var(--blue);font-family:monospace;font-size:.8rem">\${b.timestamp}</span>
+                      <span style="font-size:.8rem;color:var(--muted)">\${b.packet_count} pkts</span>
+                    </div>
+                    <div style="font-size:.85rem;color:var(--muted);line-height:1.4">\${b.summary||b.error||'No summary'}</div>
+                  </div>
+                \`).join('')}
+              </div>
+            </div>
+          \`;
+        });
+        main.innerHTML = html;
+      } catch(e) { main.innerHTML = \`<div style="color:var(--red);padding:2rem">Error: \${e}</div>\`; }
+    }
+
+    /* ── Boot ──────────────────────────────────────────────────── */
+    window.onload = () => {
+      initCharts();
+      loadIfaces();
+      fetchStats();
+      setInterval(fetchStats, 5000);
+      refreshLlmList();
+      
+      const es = new EventSource('/stream');
+      const sts = document.getElementById('sseStatus');
+      es.onopen = () => { sts.textContent = '🟢 live'; sts.style.color = 'var(--green)'; };
+      es.onerror = () => { sts.textContent = '🔴 disconnected'; sts.style.color = 'var(--red)'; };
+      es.onmessage = e => {
+        try {
+          const logData = JSON.parse(e.data);
+          logTerm(logData.message, logData.level);
+        } catch(err){}
+      };
+    };
+  </script>
+</body>
+</html>
